@@ -1,10 +1,19 @@
 # performance_benchmark.py
-# A real-world speed test for FireDucks
-
+# A real-world speed test for FireDucks with proper evaluation
 import fireducks.pandas as pd
 import numpy as np
 import time
 import matplotlib.pyplot as plt
+
+def evaluate(df):
+    """
+    Force evaluation for FireDucks dataframes
+    """
+    try:
+        df._evaluate()  # Force evaluation for FireDucks
+    except AttributeError:
+        pass
+    return df
 
 def generate_sales_data(rows):
     """
@@ -20,12 +29,13 @@ def generate_sales_data(rows):
     product_categories = ['Electronics', 'Clothing', 'Home', 'Books', 'Toys']
     regions = ['North', 'South', 'East', 'West', 'Central']
     
-    return pd.DataFrame({
+    df = pd.DataFrame({
         'product_category': np.random.choice(product_categories, rows),
         'region': np.random.choice(regions, rows),
         'sales_amount': np.random.normal(500, 200, rows),  # Mean $500, std dev $200
         'discount_applied': np.random.choice([True, False], rows, p=[0.3, 0.7])
     })
+    return evaluate(df)  # Ensure data is evaluated
 
 def performance_analysis(df):
     """
@@ -38,10 +48,11 @@ def performance_analysis(df):
         pd.DataFrame: Aggregated performance metrics
     """
     # Multiple aggregations to simulate real-world complexity
-    return df.groupby(['product_category', 'region']).agg({
+    result = df.groupby(['product_category', 'region']).agg({
         'sales_amount': ['sum', 'mean', 'count'],
         'discount_applied': 'mean'
     })
+    return evaluate(result)  # Ensure result is evaluated
 
 def benchmark_fireducks(data_sizes):
     """
@@ -57,15 +68,23 @@ def benchmark_fireducks(data_sizes):
     
     for size in data_sizes:
         # Generate data
+        print(f"Generating dataset with {size:,} rows...")
         sales_data = generate_sales_data(size)
         
         # Time the analysis
+        print(f"Running analysis on {size:,} rows...")
         start_time = time.time()
         result = performance_analysis(sales_data)
         end_time = time.time()
         
-        performance_results[size] = end_time - start_time
-        print(f"Data Size: {size:,} rows | Processing Time: {end_time - start_time:.4f} seconds")
+        elapsed_time = end_time - start_time
+        performance_results[size] = elapsed_time
+        print(f"Data Size: {size:,} rows | Processing Time: {elapsed_time:.4f} seconds")
+        
+        # Display a sample of the results (first 5 rows)
+        print("\nSample of analysis results:")
+        print(result.head(5))
+        print("\n" + "-"*60 + "\n")
     
     return performance_results
 
@@ -73,20 +92,43 @@ def benchmark_fireducks(data_sizes):
 def main():
     print("🚀 FireDucks Performance Benchmark 🚀")
     
-    # Test different data sizes
-    data_sizes = [100_000, 500_000, 1_000_000, 2_000_000]
+    # Test different data sizes - using smaller sizes for demonstration
+    data_sizes = [10_000, 50_000, 100_000, 200_000]
     results = benchmark_fireducks(data_sizes)
     
-    # Optional visualization (if matplotlib is available)
+    # Print summary table
+    print("\nPerformance Summary:")
+    print("-" * 40)
+    print(f"{'Data Size':>12} | {'Processing Time':>20}")
+    print("-" * 40)
+    for size, time_taken in results.items():
+        print(f"{size:>12,} | {time_taken:>20.4f} seconds")
+    
+    # Visualization
     try:
         plt.figure(figsize=(10, 6))
-        plt.plot(list(results.keys()), list(results.values()), marker='o')
+        plt.plot(list(results.keys()), list(results.values()), marker='o', linewidth=2)
         plt.title('FireDucks Performance: Processing Time vs Dataset Size')
         plt.xlabel('Number of Rows')
         plt.ylabel('Processing Time (seconds)')
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.xticks(list(results.keys()))
+        plt.ticklabel_format(style='plain', axis='x')
+        
+        # Add data point labels
+        for size, time_taken in results.items():
+            plt.annotate(f"{time_taken:.2f}s", 
+                        (size, time_taken),
+                        textcoords="offset points", 
+                        xytext=(0,10), 
+                        ha='center')
+            
         plt.tight_layout()
         plt.savefig('performance_benchmark.png')
-        plt.close()
+        print("\nPerformance visualization saved as 'performance_benchmark.png'")
+        
+        # Display the plot
+        plt.show()
     except Exception as e:
         print(f"Visualization failed: {e}")
 
